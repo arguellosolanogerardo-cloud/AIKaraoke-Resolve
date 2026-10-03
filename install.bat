@@ -48,23 +48,29 @@ echo.
 
 :: Copy script to DaVinci Resolve Scripts folder
 echo [4/4] Installing plugin to DaVinci Resolve...
-set "RESOLVE_SCRIPTS=C:\ProgramData\Blackmagic Design\DaVinci Resolve\Support\Developer\Scripting\Scripts"
+set "RESOLVE_SCRIPTS_EDIT=C:\ProgramData\Blackmagic Design\DaVinci Resolve\Fusion\Scripts\Edit"
+set "RESOLVE_SCRIPTS_UTIL=C:\ProgramData\Blackmagic Design\DaVinci Resolve\Fusion\Scripts\Utility"
 
-if not exist "%RESOLVE_SCRIPTS%" (
-    echo  WARNING: DaVinci Resolve scripts folder not found at:
-    echo  %RESOLVE_SCRIPTS%
-    echo  Please copy scripts\aikaraoke_main.py manually to your Resolve Scripts folder.
-) else (
-    copy /Y "scripts\aikaraoke_main.py" "%RESOLVE_SCRIPTS%\AIKaraoke Resolve.py"
-    echo  OK - Plugin installed to DaVinci Resolve.
-    echo.
-    echo  ================================================
-    echo   INSTALLATION COMPLETE!
-    echo  ================================================
-    echo.
-    echo  In DaVinci Resolve:
-    echo    Workspace ^> Scripts ^> AIKaraoke Resolve
-    echo.
+if not exist "%RESOLVE_SCRIPTS_EDIT%" (
+    mkdir "%RESOLVE_SCRIPTS_EDIT%" 2>nul
 )
+if not exist "%RESOLVE_SCRIPTS_UTIL%" (
+    mkdir "%RESOLVE_SCRIPTS_UTIL%" 2>nul
+)
+
+copy /Y "scripts\aikaraoke_main.py" "%RESOLVE_SCRIPTS_EDIT%\AIKaraoke Resolve.py" >nul
+copy /Y "scripts\aikaraoke_main.py" "%RESOLVE_SCRIPTS_UTIL%\AIKaraoke Resolve.py" >nul
+
+echo  OK - Plugin instalado correctamente en DaVinci Resolve.
+echo.
+echo  ================================================
+echo   INSTALACION COMPLETA!
+echo  ================================================
+echo.
+echo  En DaVinci Resolve abre:
+echo    Workspace ^> Scripts ^> Edit ^> AIKaraoke Resolve
+echo    o
+echo    Workspace ^> Scripts ^> Utility ^> AIKaraoke Resolve
+echo.
 
 pause
