@@ -1,0 +1,14 @@
+# AIKaraoke Resolve - Python dependencies
+# Install with: pip install -r requirements.txt
+
+# Image rendering (bouncing ball frames)
+Pillow>=10.0.0
+
+# Whisper AI - voice word-level analysis
+openai-whisper>=20231117
+
+# Optional: faster Whisper inference
+# faster-whisper>=0.10.0
+
+# Optional: GUI window (future feature)
+# PyQt5>=5.15.0
