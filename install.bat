@@ -48,18 +48,25 @@ echo.
 
 :: Copy script to DaVinci Resolve Scripts folder
 echo [4/4] Installing plugin to DaVinci Resolve...
-set "RESOLVE_SCRIPTS_EDIT=C:\ProgramData\Blackmagic Design\DaVinci Resolve\Fusion\Scripts\Edit"
-set "RESOLVE_SCRIPTS_UTIL=C:\ProgramData\Blackmagic Design\DaVinci Resolve\Fusion\Scripts\Utility"
+set "APPDATA_SCRIPTS=%APPDATA%\Blackmagic Design\DaVinci Resolve\Support\Fusion\Scripts"
+set "PROGRAMDATA_SCRIPTS=C:\ProgramData\Blackmagic Design\DaVinci Resolve\Fusion\Scripts"
 
-if not exist "%RESOLVE_SCRIPTS_EDIT%" (
-    mkdir "%RESOLVE_SCRIPTS_EDIT%" 2>nul
-)
-if not exist "%RESOLVE_SCRIPTS_UTIL%" (
-    mkdir "%RESOLVE_SCRIPTS_UTIL%" 2>nul
-)
+:: Create directories
+mkdir "%APPDATA_SCRIPTS%\Edit" 2>nul
+mkdir "%APPDATA_SCRIPTS%\Utility" 2>nul
+mkdir "%APPDATA_SCRIPTS%\Comp" 2>nul
+mkdir "%PROGRAMDATA_SCRIPTS%\Edit" 2>nul
+mkdir "%PROGRAMDATA_SCRIPTS%\Utility" 2>nul
 
-copy /Y "scripts\aikaraoke_main.py" "%RESOLVE_SCRIPTS_EDIT%\AIKaraoke Resolve.py" >nul
-copy /Y "scripts\aikaraoke_main.py" "%RESOLVE_SCRIPTS_UTIL%\AIKaraoke Resolve.py" >nul
+:: Copy scripts to User AppData
+copy /Y "scripts\*" "%APPDATA_SCRIPTS%\" >nul
+copy /Y "scripts\*" "%APPDATA_SCRIPTS%\Edit\" >nul
+copy /Y "scripts\*" "%APPDATA_SCRIPTS%\Utility\" >nul
+copy /Y "scripts\*" "%APPDATA_SCRIPTS%\Comp\" >nul
+
+:: Copy scripts to ProgramData
+copy /Y "scripts\*" "%PROGRAMDATA_SCRIPTS%\Edit\" >nul
+copy /Y "scripts\*" "%PROGRAMDATA_SCRIPTS%\Utility\" >nul
 
 echo  OK - Plugin instalado correctamente en DaVinci Resolve.
 echo.
@@ -68,9 +75,9 @@ echo   INSTALACION COMPLETA!
 echo  ================================================
 echo.
 echo  En DaVinci Resolve abre:
-echo    Workspace ^> Scripts ^> Edit ^> AIKaraoke Resolve
+echo    Espacio de trabajo (Area de trabajo) ^> Scripts ^> AIKaraoke Resolve
 echo    o
-echo    Workspace ^> Scripts ^> Utility ^> AIKaraoke Resolve
+echo    Espacio de trabajo ^> Scripts ^> Edit ^> AIKaraoke Resolve
 echo.
 
 pause
