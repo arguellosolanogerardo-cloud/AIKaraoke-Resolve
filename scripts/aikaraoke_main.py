@@ -18,6 +18,19 @@ import sys
 import os
 
 # ─────────────────────────────────────────────────────────
+# Force clear old cached modules in long-running Resolve host
+# ─────────────────────────────────────────────────────────
+for _m in ["whisper_align", "build_ball", "resolve_integration", "whisper", "torch"]:
+    sys.modules.pop(_m, None)
+
+# Remove conflicting python version site-packages from Resolve's memory
+for _p in list(sys.path):
+    if "Python313" in _p and "3.14" in sys.version:
+        sys.path.remove(_p)
+    elif "Python314" in _p and "3.13" in sys.version:
+        sys.path.remove(_p)
+
+# ─────────────────────────────────────────────────────────
 # Auto-detect script directory to import sibling modules
 # ─────────────────────────────────────────────────────────
 if "__file__" in globals():
