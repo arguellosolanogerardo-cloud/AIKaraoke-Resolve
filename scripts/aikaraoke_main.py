@@ -20,7 +20,18 @@ import os
 # ─────────────────────────────────────────────────────────
 # Auto-detect script directory to import sibling modules
 # ─────────────────────────────────────────────────────────
-SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+if "__file__" in globals():
+    SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+else:
+    # Resolve internal script execution fallback
+    potential_dirs = [
+        r"E:\DEVELOPER\AI\FACTORY SOFTWARE\TESTING\AIKaraoke Resolve\scripts",
+        os.path.join(os.environ.get("APPDATA", ""), r"Blackmagic Design\DaVinci Resolve\Support\Fusion\Scripts\Edit"),
+        os.path.join(os.environ.get("APPDATA", ""), r"Blackmagic Design\DaVinci Resolve\Support\Fusion\Scripts"),
+        r"C:\ProgramData\Blackmagic Design\DaVinci Resolve\Fusion\Scripts\Edit",
+    ]
+    SCRIPT_DIR = next((d for d in potential_dirs if os.path.exists(d)), os.getcwd())
+
 if SCRIPT_DIR not in sys.path:
     sys.path.insert(0, SCRIPT_DIR)
 
@@ -38,23 +49,31 @@ for p in RESOLVE_API_PATHS:
 try:
     import DaVinciResolveScript as dvr
 except ImportError:
-    print("ERROR: Cannot import DaVinciResolveScript.")
-    print("Make sure DaVinci Resolve is running and the scripting API is enabled.")
-    sys.exit(1)
+    dvr = None
 
 # ─────────────────────────────────────────────────────────
-# Connect to DaVinci Resolve
+# Connect to DaVinci Resolve (handles both internal & external execution)
 # ─────────────────────────────────────────────────────────
-resolve = dvr.scriptapp("Resolve")
-if not resolve:
+resolve_obj = globals().get("resolve")
+if not resolve_obj and dvr:
+    try:
+        resolve_obj = dvr.scriptapp("Resolve")
+    except Exception:
+        resolve_obj = None
+
+if not resolve_obj:
     print("ERROR: Could not connect to DaVinci Resolve.")
-    print("Make sure DaVinci Resolve is open.")
+    print("Make sure DaVinci Resolve is open with a timeline.")
     sys.exit(1)
 
+resolve = resolve_obj
 project_manager = resolve.GetProjectManager()
 project = project_manager.GetCurrentProject()
-timeline = project.GetCurrentTimeline()
+if not project:
+    print("ERROR: No project open in DaVinci Resolve.")
+    sys.exit(1)
 
+timeline = project.GetCurrentTimeline()
 if not timeline:
     print("ERROR: No timeline open. Please open a timeline first.")
     sys.exit(1)
@@ -168,5 +187,5 @@ def run():
     print(f"  File > Import > Subtitles > select karaoke_subtitles.srt")
 
 
-if __name__ == "__main__":
-    run()
+# Execute workflow
+run()
