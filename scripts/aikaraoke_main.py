@@ -35,14 +35,6 @@ else:
 if SCRIPT_DIR not in sys.path:
     sys.path.insert(0, SCRIPT_DIR)
 
-# Auto-detect all Python site-packages directories on Windows
-import glob
-py_base = os.path.expandvars(r"%LOCALAPPDATA%\Programs\Python")
-if os.path.exists(py_base):
-    for sp in glob.glob(os.path.join(py_base, "Python*", "Lib", "site-packages")):
-        if os.path.exists(sp) and sp not in sys.path:
-            sys.path.append(sp)
-
 # DaVinci Resolve API paths
 RESOLVE_API_PATHS = [
     "C:\\ProgramData\\Blackmagic Design\\DaVinci Resolve\\Support\\Developer\\Scripting\\Modules",

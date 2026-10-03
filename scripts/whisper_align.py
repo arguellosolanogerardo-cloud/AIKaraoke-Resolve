@@ -4,7 +4,7 @@ whisper_align.py
 Whisper AI voice analysis module.
 Extracts word-level timestamps from an audio file.
 
-Runs in an isolated Python process to avoid host application (Resolve) DLL conflicts.
+Runs in an isolated Python subprocess to avoid host application (Resolve) DLL conflicts.
 """
 
 import os
@@ -27,6 +27,19 @@ def _find_system_python() -> str:
         if c and os.path.exists(c):
             return c
     return "python"
+
+
+def _find_whisper_script() -> str:
+    """Locates the absolute path to this whisper_align.py script."""
+    candidates = [
+        r"E:\DEVELOPER\AI\FACTORY SOFTWARE\TESTING\AIKaraoke Resolve\scripts\whisper_align.py",
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), "whisper_align.py") if "__file__" in globals() else "",
+        os.path.join(os.path.expandvars(r"%APPDATA%\Blackmagic Design\DaVinci Resolve\Support\Fusion\Scripts\Edit"), "whisper_align.py"),
+    ]
+    for c in candidates:
+        if c and os.path.exists(c):
+            return c
+    return "whisper_align.py"
 
 
 def _run_transcribe_internal(audio_path: str, model_name: str, language: str, output_dir: str) -> list:
@@ -76,8 +89,8 @@ def analyze_voice(audio_path: str, model_name: str = "base",
         with open(cache_file, "r", encoding="utf-8") as f:
             return json.load(f)
 
-    # Check if we should run via isolated subprocess
-    script_path = os.path.abspath(__file__)
+    # Run via isolated subprocess
+    script_path = _find_whisper_script()
     python_exe = _find_system_python()
 
     print(f"  Launching Whisper AI via {os.path.basename(python_exe)}...")
@@ -92,18 +105,15 @@ def analyze_voice(audio_path: str, model_name: str = "base",
 
     try:
         proc = subprocess.run(cmd, check=True)
-        if os.path.exists(cache_file):
-            with open(cache_file, "r", encoding="utf-8") as f:
-                return json.load(f)
     except Exception as e:
-        print(f"  Subprocess execution note: {e}. Attempting in-process fallback...")
-        return _run_transcribe_internal(audio_path, model_name, language, output_dir)
+        print(f"  Subprocess execution note: {e}.")
 
     if os.path.exists(cache_file):
         with open(cache_file, "r", encoding="utf-8") as f:
             return json.load(f)
     else:
-        raise RuntimeError("Whisper voice analysis failed to generate timestamps.")
+        # Fallback to direct in-process transcribe
+        return _run_transcribe_internal(audio_path, model_name, language, output_dir)
 
 
 if __name__ == "__main__":
