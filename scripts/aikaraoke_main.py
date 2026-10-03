@@ -128,12 +128,12 @@ def run():
     # 1. Resolve Audio File (Auto-detect from timeline or use CONFIG)
     audio_path = CONFIG.get("audio_file", "").strip()
     if not audio_path or not os.path.exists(audio_path):
-        print("\n🔍 Detecting audio directly from Timeline...")
+        print("\n[+] Detecting audio directly from Timeline...")
         audio_path = get_timeline_audio_path(timeline)
         if audio_path and os.path.exists(audio_path):
-            print(f"  ✓ Auto-detected timeline audio: {audio_path}")
+            print(f"  [OK] Auto-detected timeline audio: {audio_path}")
         else:
-            print("\n❌ ERROR: Could not find audio in timeline and 'audio_file' is not configured.")
+            print("\n[ERROR] Could not find audio in timeline and 'audio_file' is not configured.")
             print("Please make sure you have an audio or video clip in your timeline.")
             return
 

@@ -17,9 +17,8 @@ def _find_system_python() -> str:
     """Finds the best available standalone Python executable on the system."""
     candidates = [
         r"C:\Users\INGENIERO\AppData\Local\Programs\Python\Python313\python.exe",
-        r"C:\Users\INGENIERO\AppData\Local\Programs\Python\Python314\python.exe",
         r"C:\Users\INGENIERO\AppData\Local\Programs\Python\Python311\python.exe",
-        sys.executable,
+        r"C:\Users\INGENIERO\AppData\Local\Programs\Python\Python314\python.exe",
         "python",
         "python3"
     ]
@@ -71,7 +70,7 @@ def _run_transcribe_internal(audio_path: str, model_name: str, language: str, ou
     with open(cache_file, "w", encoding="utf-8") as f:
         json.dump(word_timestamps, f, ensure_ascii=False, indent=2)
 
-    print(f"  ✓ Saved {len(word_timestamps)} word timestamps to {cache_file}")
+    print(f"  Saved {len(word_timestamps)} word timestamps to {cache_file}")
     return word_timestamps
 
 
@@ -85,11 +84,11 @@ def analyze_voice(audio_path: str, model_name: str = "base",
 
     # Use cached results if available
     if os.path.exists(cache_file):
-        print(f"  ✓ Loading cached Whisper results from {cache_file}")
+        print(f"  Loading cached Whisper results from {cache_file}")
         with open(cache_file, "r", encoding="utf-8") as f:
             return json.load(f)
 
-    # Run via isolated subprocess
+    # Run via isolated subprocess using Python 3.13 or system python
     script_path = _find_whisper_script()
     python_exe = _find_system_python()
 
@@ -103,17 +102,18 @@ def analyze_voice(audio_path: str, model_name: str = "base",
         output_dir
     ]
 
-    try:
-        proc = subprocess.run(cmd, check=True)
-    except Exception as e:
-        print(f"  Subprocess execution note: {e}.")
+    env = os.environ.copy()
+    env["PYTHONIOENCODING"] = "utf-8"
+
+    proc = subprocess.run(cmd, env=env)
+    if proc.returncode != 0:
+        raise RuntimeError(f"Whisper subprocess failed with exit code {proc.returncode}")
 
     if os.path.exists(cache_file):
         with open(cache_file, "r", encoding="utf-8") as f:
             return json.load(f)
     else:
-        # Fallback to direct in-process transcribe
-        return _run_transcribe_internal(audio_path, model_name, language, output_dir)
+        raise RuntimeError(f"Whisper voice analysis completed but {cache_file} was not found.")
 
 
 if __name__ == "__main__":
