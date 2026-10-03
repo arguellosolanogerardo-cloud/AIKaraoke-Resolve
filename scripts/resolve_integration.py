@@ -25,6 +25,43 @@ def _get_resolve_api():
     return dvr
 
 
+def get_timeline_audio_path(timeline) -> str:
+    """
+    Detects the audio or video source file path directly from the timeline clips.
+    First inspects Audio tracks (A1, A2...), then Video tracks (V1...).
+    
+    Returns:
+        Full path to the media file on disk, or empty string if not found.
+    """
+    # 1. Search in Audio tracks
+    audio_track_count = timeline.GetTrackCount("audio")
+    for t_idx in range(1, audio_track_count + 1):
+        items = timeline.GetItemListInTrack("audio", t_idx)
+        if items:
+            for item in items:
+                mpi = item.GetMediaPoolItem()
+                if mpi:
+                    props = mpi.GetClipProperty()
+                    file_path = props.get("File Path") if isinstance(props, dict) else mpi.GetClipProperty("File Path")
+                    if file_path and os.path.exists(file_path):
+                        return file_path
+
+    # 2. Search in Video tracks (videos with embedded audio)
+    video_track_count = timeline.GetTrackCount("video")
+    for t_idx in range(1, video_track_count + 1):
+        items = timeline.GetItemListInTrack("video", t_idx)
+        if items:
+            for item in items:
+                mpi = item.GetMediaPoolItem()
+                if mpi:
+                    props = mpi.GetClipProperty()
+                    file_path = props.get("File Path") if isinstance(props, dict) else mpi.GetClipProperty("File Path")
+                    if file_path and os.path.exists(file_path):
+                        return file_path
+
+    return ""
+
+
 def get_subtitle_clips(timeline) -> list:
     """
     Read all subtitle clips from Subtitle Track 1 of the timeline.

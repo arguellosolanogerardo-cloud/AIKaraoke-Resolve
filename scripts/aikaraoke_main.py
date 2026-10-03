@@ -104,12 +104,19 @@ def run():
     print("  AIKaraoke Resolve - Starting")
     print("="*50)
 
-    # Validate audio file
-    if not CONFIG["audio_file"] or not os.path.exists(CONFIG["audio_file"]):
-        print("\nERROR: Audio file not set or not found.")
-        print("Edit CONFIG['audio_file'] in aikaraoke_main.py with your audio path.")
-        print("Example: CONFIG['audio_file'] = r'C:\\Music\\my_song.wav'")
-        return
+    from resolve_integration import get_timeline_audio_path, get_subtitle_clips, relink_ball_clip
+
+    # 1. Resolve Audio File (Auto-detect from timeline or use CONFIG)
+    audio_path = CONFIG.get("audio_file", "").strip()
+    if not audio_path or not os.path.exists(audio_path):
+        print("\n🔍 Detecting audio directly from Timeline...")
+        audio_path = get_timeline_audio_path(timeline)
+        if audio_path and os.path.exists(audio_path):
+            print(f"  ✓ Auto-detected timeline audio: {audio_path}")
+        else:
+            print("\n❌ ERROR: Could not find audio in timeline and 'audio_file' is not configured.")
+            print("Please make sure you have an audio or video clip in your timeline.")
+            return
 
     # Create output directory
     os.makedirs(CONFIG["output_dir"], exist_ok=True)
@@ -120,7 +127,7 @@ def run():
     print("\n[1/3] Analyzing voice with Whisper AI...")
     from whisper_align import analyze_voice
     word_timestamps = analyze_voice(
-        audio_path=CONFIG["audio_file"],
+        audio_path=audio_path,
         model_name=CONFIG["whisper_model"],
         language=CONFIG["whisper_language"],
         output_dir=CONFIG["output_dir"]
@@ -129,7 +136,6 @@ def run():
 
     # Step 2: Read subtitle clips from timeline
     print("\n[2/3] Reading subtitle clips from timeline...")
-    from resolve_integration import get_subtitle_clips, relink_ball_clip
     subtitle_clips = get_subtitle_clips(timeline)
     print(f"      Found {len(subtitle_clips)} subtitle clips.")
 
