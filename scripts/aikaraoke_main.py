@@ -109,17 +109,22 @@ CONFIG = {
     "bounce_height": 50,         # pixels above baseline
     "tail_length": 32,           # frames of comet tail history
 
+    # Video Codec
+    # "qtrle"  : QuickTime Animation RLE con canal Alfa (Ultra-rápido, ~20 segs, <15% CPU)
+    # "prores" : Apple ProRes 4444 (Más pesado, ~4 minutos, 100% CPU)
+    "video_codec": "qtrle",
+
     # Whisper AI settings
     "whisper_model": "base",     # tiny | base | small | medium | large
     "whisper_language": "es",    # language code: es, en, fr, pt, etc.
 
     # Timeline
-    "ball_track_index": 3,       # Video track number for the bouncing ball
+    "ball_track_index": 2,       # Video track number for the bouncing ball (Track 2)
     "subtitle_track_index": 1,   # Subtitle track number
 
     # Ball Y positions (pixels from top, 1080p)
     "y_single_line": 895,        # Y for single-line subtitles
-    "y_line1": 830,              # Y for line 1 of 2-line subtitles
+    "y_line1": 820,              # Y for line 1 of 2-line subtitles
     "y_line2": 895,              # Y for line 2 of 2-line subtitles
 
     # Font for word width calculation

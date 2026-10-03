@@ -44,9 +44,12 @@ def _find_whisper_script() -> str:
 def _run_transcribe_internal(audio_path: str, model_name: str, language: str, output_dir: str) -> list:
     """Performs transcription directly using whisper library."""
     import whisper
+    import torch
 
-    print(f"  Loading Whisper model: '{model_name}'...")
-    model = whisper.load_model(model_name)
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    gpu_name = f" ({torch.cuda.get_device_name(0)})" if device == "cuda" else ""
+    print(f"  Loading Whisper model: '{model_name}' on {device.upper()}{gpu_name}...")
+    model = whisper.load_model(model_name, device=device)
 
     print(f"  Transcribing audio with Whisper AI (language='{language}')...")
     result = model.transcribe(
