@@ -146,18 +146,40 @@ def relink_ball_clip(project, timeline, ball_file: str, config: dict) -> bool:
         else:
             print(f"  WARNING: RelinkClips failed for '{clip_name}'.")
 
-    # If not found, import it
-    if os.path.exists(ball_file):
+    clip_to_insert = existing
+    # If not found in pool, import it
+    if not clip_to_insert and os.path.exists(ball_file):
         imported = media_pool.ImportMedia([ball_file])
         if imported:
+            clip_to_insert = imported[0]
             print(f"  Imported '{clip_name}' into Media Pool.")
-            # Note: Placing on a specific track via API is limited in Resolve.
-            # User may need to drag it to Video Track {config['ball_track_index']} manually.
-            print(f"  ACTION REQUIRED: Drag '{clip_name}' to Video Track {config['ball_track_index']} in the timeline.")
-            return True
 
-    print(f"  ERROR: Could not relink or import {ball_file}")
-    return False
+    # Check if clip is already on the timeline
+    is_on_timeline = False
+    for t_idx in range(1, timeline.GetTrackCount("video") + 1):
+        for it in timeline.GetItemListInTrack("video", t_idx):
+            if it.GetName() == clip_name:
+                is_on_timeline = True
+                break
+        if is_on_timeline:
+            break
+
+    if not is_on_timeline and clip_to_insert:
+        target_track = config.get("ball_track_index", 2)
+        while timeline.GetTrackCount("video") < target_track:
+            timeline.AddTrack("video")
+
+        try:
+            res = media_pool.AppendToTimeline([{
+                "mediaPoolItem": clip_to_insert,
+                "recordFrame": timeline.GetStartFrame(),
+                "trackIndex": target_track
+            }])
+            print(f"  Auto-placed '{clip_name}' on Video Track {target_track} at frame {timeline.GetStartFrame()}.")
+        except Exception as e:
+            print(f"  Could not auto-place on timeline: {e}. Please drag '{clip_name}' to Video Track {target_track}.")
+
+    return True
 
 
 def export_subtitle_timecodes(timeline, output_path: str) -> list:
