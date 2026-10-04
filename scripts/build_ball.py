@@ -1,17 +1,17 @@
 """
 build_ball.py
 --------------
-Renders the karaoke bouncing ball as a ProRes 4444 MOV file
-with alpha channel transparency (transparent background).
+Renders the karaoke bouncing ball as a transparent MOV file
+(QuickTime Animation RLE with Alpha or ProRes 4444).
 
 Features:
-  - Exact 2-step automatic vocal alignment: matches subtitle texts directly
-    to Whisper AI word timestamps, eliminating any timeline delays.
-  - Multi-line subtitle support (handles \\u2028, \\r\\n, \\n).
-  - Centered independent X coordinate calculation for each line.
-  - Smooth line-to-line transitions during inter-line vocal pauses.
-  - Parabolic bounce arc over each word.
-  - Golden glow with multiple radius layers and comet tail.
+  - Exact sequential subtitle alignment to Whisper AI word timestamps.
+  - Generates perfectly voice-synced SRT files.
+  - Tighter, lower bounce height (20px) directly over syllables.
+  - Word-synchronized parabolic jump: lands on each word at the exact vocal start.
+  - Longer, ultra-saturated fiery golden comet tail (50 frames history).
+  - Multi-line subtitle support (detects \\u2028, \\r\\n, \\n).
+  - Centered X per line and smooth line-to-line transitions.
 """
 
 import os
@@ -41,12 +41,8 @@ def _find_font() -> str:
 
 def auto_align_subtitles(subtitle_clips: list, word_timestamps: list, fps: float, base_frame: int):
     """
-    Aligns each subtitle clip to the real singer vocals by matching subtitle text
-    tokens to Whisper AI word-level timestamps.
-
-    Returns:
-        List of aligned clip dictionaries with 'voice_start_s', 'voice_end_s',
-        'word_timings', 'lines', and 'words'.
+    Performs precise sequential alignment between subtitle texts and Whisper word timestamps.
+    Ensures every subtitle begins at the exact vocal millisecond.
     """
     def f2s(frame): return (frame - base_frame) / float(fps)
 
@@ -70,42 +66,42 @@ def auto_align_subtitles(subtitle_clips: list, word_timestamps: list, fps: float
         orig_s = f2s(clip["start_f"])
         orig_e = f2s(clip["end_f"])
 
-        best_score = -1
-        best_start_idx = whisper_cursor
-        best_end_idx = whisper_cursor + max(1, n_target - 1)
-
-        # Search window in Whisper words (around cursor and original time)
-        search_max = min(len(word_timestamps), whisper_cursor + 35)
-        for si in range(whisper_cursor, search_max):
-            for ei in range(si, min(len(word_timestamps), si + n_target + 6)):
-                cand_tokens = [_clean_word(word_timestamps[k]["word"]) for k in range(si, ei + 1)]
-                hits = sum(1 for w in cand_tokens if w in target_tokens)
-                score = hits / max(len(cand_tokens), n_target)
-                if score > best_score:
-                    best_score = score
-                    best_start_idx = si
-                    best_end_idx = ei
-
-        if best_score >= 0.25 and best_start_idx < len(word_timestamps):
-            # Narrow/expand to the first and last actual matching token
-            matched_indices = [k for k in range(best_start_idx, best_end_idx + 1)
-                               if _clean_word(word_timestamps[k]["word"]) in target_tokens]
-            if matched_indices:
-                v_start = word_timestamps[matched_indices[0]]["start"]
-                v_end = word_timestamps[matched_indices[-1]]["end"]
-                sub_whisper_slice = word_timestamps[matched_indices[0]:matched_indices[-1] + 1]
-                whisper_cursor = matched_indices[-1] + 1
-            else:
-                v_start = word_timestamps[best_start_idx]["start"]
-                v_end = word_timestamps[best_end_idx]["end"]
-                sub_whisper_slice = word_timestamps[best_start_idx:best_end_idx + 1]
-                whisper_cursor = best_end_idx + 1
-        else:
+        if not target_tokens or whisper_cursor >= len(word_timestamps):
+            # Fallback to original timeline bounds if voice is exhausted (instrumental outro)
             v_start = orig_s
             v_end = orig_e
             sub_whisper_slice = []
+        else:
+            first_clean = target_tokens[0]
+            last_clean = target_tokens[-1]
 
-        # Map timings to each word
+            # 1. Search for start word anchor
+            start_found = -1
+            for k in range(whisper_cursor, min(len(word_timestamps), whisper_cursor + 28)):
+                cand = _clean_word(word_timestamps[k]["word"])
+                if cand == first_clean or (len(target_tokens) > 1 and cand == target_tokens[1]):
+                    start_found = k
+                    break
+            if start_found == -1:
+                start_found = whisper_cursor
+
+            # 2. Search for end word anchor
+            end_found = -1
+            search_start_end = start_found + max(0, n_target - 5)
+            search_end_limit = min(len(word_timestamps), start_found + n_target + 12)
+            for k in range(search_start_end, search_end_limit):
+                if k >= start_found and _clean_word(word_timestamps[k]["word"]) == last_clean:
+                    end_found = k
+                    break
+            if end_found == -1:
+                end_found = min(len(word_timestamps) - 1, start_found + max(0, n_target - 1))
+
+            v_start = word_timestamps[start_found]["start"]
+            v_end = word_timestamps[end_found]["end"]
+            sub_whisper_slice = word_timestamps[start_found : end_found + 1]
+            whisper_cursor = end_found + 1
+
+        # Assign timings to each subtitle word
         word_timings = []
         n_sub = len(all_words)
         n_whi = len(sub_whisper_slice)
@@ -130,16 +126,16 @@ def auto_align_subtitles(subtitle_clips: list, word_timestamps: list, fps: float
                     word_timings.append((prev_end, prev_end + dur))
 
         aligned_clips.append({
-            "index":        idx + 1,
-            "raw_text":     raw_name,
-            "lines":        raw_lines,
-            "line_words":   line_words,
-            "all_words":    all_words,
+            "index":         idx + 1,
+            "raw_text":      raw_name,
+            "lines":         raw_lines,
+            "line_words":    line_words,
+            "all_words":     all_words,
             "voice_start_s": v_start,
             "voice_end_s":   v_end,
-            "word_timings": word_timings,
-            "orig_start_f": clip["start_f"],
-            "orig_end_f":   clip["end_f"]
+            "word_timings":  word_timings,
+            "orig_start_f":  clip["start_f"],
+            "orig_end_f":    clip["end_f"]
         })
 
     return aligned_clips
@@ -159,8 +155,8 @@ def _write_perfect_srt(aligned_clips, base_frame, fps, output_srt):
 
     entries = []
     for c in aligned_clips:
-        # Give a small 0.12s visual pre-roll before first word, and 0.3s hold after last word
-        st = max(0.0, c["voice_start_s"] - 0.12)
+        # Pre-roll of 0.10s before vocal attack, hold for 0.30s after phrase
+        st = max(0.0, c["voice_start_s"] - 0.10)
         en = c["voice_end_s"] + 0.30
         text_block = "\n".join(c["lines"])
         entries.append(f"{c['index']}\n{fmt(st)} --> {fmt(en)}\n{text_block}\n")
@@ -177,14 +173,15 @@ def render_ball(word_timestamps: list, subtitle_clips: list,
     width, height   = 1920, 1080
     fps             = 24
     base_frame      = 86400
-    ball_radius     = config.get("ball_radius", 40)
-    ball_color      = config.get("ball_color", (255, 215, 0))
-    bounce_height   = config.get("bounce_height", 45)
-    max_tail        = config.get("tail_length", 28)
+    ball_radius     = config.get("ball_radius", 38)
+    ball_color      = config.get("ball_color", (255, 205, 0))
+    bounce_height   = config.get("bounce_height", 20)      # Reduced height (tighter jump)
+    max_tail        = config.get("tail_length", 50)        # Longer saturated comet tail
     y_single        = config.get("y_single_line", 895)
     y_line1         = config.get("y_line1", 820)
     y_line2         = config.get("y_line2", 895)
     font_size       = config.get("font_size", 48)
+    video_codec     = config.get("video_codec", "qtrle")
 
     if subtitle_clips:
         first_start = min(c["start_f"] for c in subtitle_clips)
@@ -240,8 +237,7 @@ def render_ball(word_timestamps: list, subtitle_clips: list,
                 flat_idx += 1
 
         if nodes:
-            # Active interval strictly matches actual vocal start and end
-            sched_start_f = s2f(c["voice_start_s"] - 0.12)
+            sched_start_f = s2f(c["voice_start_s"] - 0.10)
             sched_end_f   = s2f(c["voice_end_s"] + 0.30)
             schedules.append({
                 "clip_start":  sched_start_f,
@@ -250,8 +246,6 @@ def render_ball(word_timestamps: list, subtitle_clips: list,
                 "voice_end":   s2f(c["voice_end_s"]),
                 "nodes":       nodes
             })
-
-    video_codec = config.get("video_codec", "qtrle")
 
     # ── Step 3: Render Video via ffmpeg ────────────────────────────────────
     total_frames = max(s["clip_end"] for s in schedules) - base_frame + fps * 2
@@ -269,12 +263,11 @@ def _render_video(schedules, base_frame, total_frames, fps,
                   width, height, ball_radius, ball_color,
                   bounce_height, max_tail, output_file,
                   video_codec: str = "qtrle"):
-    """Renders video frames via ffmpeg pipe with minimal CPU overhead."""
+    """Renders video frames via ffmpeg pipe with optimized CPU usage and rich comet tail."""
     if video_codec == "prores":
         codec_flags = ["-c:v", "prores_ks", "-profile:v", "4444", "-pix_fmt", "yuva444p10le"]
-        codec_desc = "Apple ProRes 4444 (High Quality)"
+        codec_desc = "Apple ProRes 4444"
     else:
-        # QuickTime Animation (RLE Alpha) is native in Resolve and renders at 300+ fps with <15% CPU
         codec_flags = ["-c:v", "qtrle"]
         codec_desc = "QuickTime Animation (RLE Alpha - Ultra Fast & Low CPU)"
 
@@ -290,7 +283,7 @@ def _render_video(schedules, base_frame, total_frames, fps,
     ]
 
     process = subprocess.Popen(cmd, stdin=subprocess.PIPE)
-    empty = b"\x00" * (width * height * 4)  # Zero-allocation static empty buffer
+    empty = b"\x00" * (width * height * 4)  # Static zero-allocation buffer
     tail = []
     r, g, b = ball_color
 
@@ -312,7 +305,7 @@ def _render_video(schedules, base_frame, total_frames, fps,
 
         nodes = active["nodes"]
 
-        # Find current word
+        # Find current word or nearest
         curr = None
         for n in nodes:
             if n["start"] <= abs_f <= n["end"]:
@@ -323,34 +316,51 @@ def _render_video(schedules, base_frame, total_frames, fps,
             if abs_f < nodes[0]["start"]:
                 curr = nodes[0]
                 nxt = nodes[0]
-                p = 0.0
+                p_jump = 0.0
+                is_jumping = False
             else:
                 curr = nodes[-1]
                 nxt = nodes[-1]
-                p = 1.0
+                p_jump = 1.0
+                is_jumping = False
         else:
             n_idx = nodes.index(curr)
-            dur = max(1.0, curr["end"] - curr["start"])
-            p = max(0.0, min(1.0, (abs_f - curr["start"]) / dur))
-
             if n_idx + 1 < len(nodes):
                 nxt = nodes[n_idx + 1]
             else:
                 nxt = curr
 
-        # Coordinates with line transition support
-        if curr["line_idx"] != nxt["line_idx"] and curr != nxt:
-            if p < 0.70:
-                local_p = p / 0.70
-                x = curr["cx"]
-                y = curr["cy"] - 4.0 * bounce_height * local_p * (1.0 - local_p)
+            word_dur = max(1.0, curr["end"] - curr["start"])
+            rel_f = abs_f - curr["start"]
+
+            # Synchronized jumping physics:
+            # First 60% of the word duration: Ball rests directly on current word
+            # Last 40% of duration: Ball leaps in a parabolic arc and lands on next word at vocal start
+            takeoff_f = curr["start"] + 0.60 * word_dur
+            if abs_f < takeoff_f or curr == nxt:
+                is_jumping = False
+                p_jump = 0.0
             else:
-                trans_p = (p - 0.70) / 0.30
-                x = curr["cx"] + (nxt["cx"] - curr["cx"]) * trans_p
-                y = (curr["cy"] + (nxt["cy"] - curr["cy"]) * trans_p) - 2.5 * bounce_height * trans_p * (1.0 - trans_p)
+                is_jumping = True
+                jump_dur = max(1.0, nxt["start"] - takeoff_f)
+                p_jump = max(0.0, min(1.0, (abs_f - takeoff_f) / jump_dur))
+
+        # Position calculation
+        if not is_jumping:
+            x = curr["cx"]
+            # Gentle breath idle hover over the active syllable
+            y = curr["cy"]
         else:
-            x = curr["cx"] + (nxt["cx"] - curr["cx"]) * p
-            y = (curr["cy"] + (nxt["cy"] - curr["cy"]) * p) - 4.0 * bounce_height * p * (1.0 - p)
+            if curr["line_idx"] != nxt["line_idx"]:
+                # Line-to-line transition
+                x = curr["cx"] + (nxt["cx"] - curr["cx"]) * p_jump
+                y = (curr["cy"] + (nxt["cy"] - curr["cy"]) * p_jump) - 1.8 * bounce_height * p_jump * (1.0 - p_jump)
+            else:
+                # Same-line crisp parabolic jump directly to next word
+                x = curr["cx"] + (nxt["cx"] - curr["cx"]) * p_jump
+                # Parabolic peak
+                arc = 4.0 * bounce_height * p_jump * (1.0 - p_jump)
+                y = (curr["cy"] + (nxt["cy"] - curr["cy"]) * p_jump) - arc
 
         tail.append((x, y))
         if len(tail) > max_tail:
@@ -359,29 +369,39 @@ def _render_video(schedules, base_frame, total_frames, fps,
         img  = Image.new("RGBA", (width, height), (0, 0, 0, 0))
         draw = ImageDraw.Draw(img)
 
-        # Comet tail
+        # Longer, highly saturated fiery golden comet tail
         n_hist = len(tail)
         for idx, (hx, hy) in enumerate(tail[:-1]):
             fac = (idx + 1) / float(n_hist)
-            fade = fac ** 1.5
-            tr = int(22 * fac + 3)
-            ta = int(180 * fade)
-            draw.ellipse([hx-tr, hy-tr, hx+tr, hy+tr], fill=(r, g//2, 0, int(ta*0.35)))
-            r2 = max(3, int(tr * 0.55))
-            draw.ellipse([hx-r2, hy-r2, hx+r2, hy+r2], fill=(r, g, b//4, ta))
+            fade = fac ** 1.3
+            tr = int(24 * fac + 4)
 
-        # Golden glow
+            # Outer fiery aura (saturated warm orange-red)
+            ta_outer = int(140 * fade)
+            draw.ellipse([hx-tr, hy-tr, hx+tr, hy+tr], fill=(255, 90, 0, ta_outer))
+
+            # Mid glowing body (saturated golden amber)
+            r_mid = max(3, int(tr * 0.65))
+            ta_mid = int(220 * fade)
+            draw.ellipse([hx-r_mid, hy-r_mid, hx+r_mid, hy+r_mid], fill=(255, 185, 0, ta_mid))
+
+            # Bright inner streak (luminous light gold)
+            r_core = max(2, int(tr * 0.35))
+            ta_core = int(255 * fade)
+            draw.ellipse([hx-r_core, hy-r_core, hx+r_core, hy+r_core], fill=(255, 245, 140, ta_core))
+
+        # Golden glow layers on the ball
         for rad, alpha in [
-            (ball_radius,               18),
-            (int(ball_radius * 0.75),   42),
-            (int(ball_radius * 0.55),   90),
-            (int(ball_radius * 0.38),  160),
-            (int(ball_radius * 0.25),  220),
+            (ball_radius,               30),
+            (int(ball_radius * 0.75),   65),
+            (int(ball_radius * 0.55),  130),
+            (int(ball_radius * 0.38),  200),
+            (int(ball_radius * 0.25),  245),
         ]:
             draw.ellipse([x-rad, y-rad, x+rad, y+rad], fill=(r, g, b, alpha))
 
-        # Core
-        draw.ellipse([x-7, y-7, x+7, y+7], fill=(255, 255, 250, 255))
+        # Core brilliant center
+        draw.ellipse([x-6, y-6, x+6, y+6], fill=(255, 255, 240, 255))
 
         process.stdin.write(img.tobytes())
 

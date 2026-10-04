@@ -104,10 +104,10 @@ CONFIG = {
     "output_dir": os.path.join(os.path.expanduser("~"), "AIKaraoke_Output"),
 
     # Ball appearance
-    "ball_radius": 50,           # pixels (increase for higher resolution)
-    "ball_color": (255, 215, 0), # RGB — golden yellow
-    "bounce_height": 50,         # pixels above baseline
-    "tail_length": 32,           # frames of comet tail history
+    "ball_radius": 38,           # pixels
+    "ball_color": (255, 205, 0), # RGB — golden yellow
+    "bounce_height": 20,         # pixels above baseline (tighter, lower jump)
+    "tail_length": 50,           # frames of comet tail history (longer & saturated)
 
     # Video Codec
     # "qtrle"  : QuickTime Animation RLE con canal Alfa (Ultra-rápido, ~20 segs, <15% CPU)
